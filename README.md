@@ -7,7 +7,7 @@ A free, lightweight Windows PDF reader for researchers who want to open a paper,
 ## Why Simple-PDF?
 
 - **Free and open source.** No subscription, account, or paid reading features. The application source is available under the MIT license.
-- **Small storage footprint.** The portable application is approximately 1 MiB, with a ZIP download below 0.5 MiB. It uses the shared Microsoft Edge WebView2 Runtime rather than bundling an entire browser. These figures exclude that runtime, the .NET Framework, and the runtime's growing profile/cache data.
+- **Small storage footprint.** The portable application is approximately 0.94 MiB, with a ZIP download of approximately 0.29 MiB. It uses the shared Microsoft Edge WebView2 Runtime rather than bundling an entire browser. These figures exclude that runtime, the .NET Framework, and the runtime's growing profile/cache data.
 - **Focused on research reading.** Reading downloaded papers usually needs navigation, search, zoom, and printing. Simple-PDF leaves out editing, OCR, conversion, electronic signatures, cloud services, and other full-suite workflows that many researchers do not need for this task. It offers a compact reading interface instead of the broader toolset of products such as Adobe Acrobat.
 - **Local documents.** Simple-PDF reads files from your computer and does not upload them or require a cloud account. The WebView2 Runtime is maintained by Microsoft and may perform its own updates or background services.
 - **English by default, with a Chinese option.** Change the language in the toolbar. The choice is remembered, and an open document is reopened when the renderer changes language.
@@ -36,7 +36,7 @@ Use the document toolbar for page numbers, zoom, fit-to-page, rotation, and sear
 | Ctrl+P | Open print preview |
 | Ctrl+F | Search the document |
 
-Use the language selector to choose **English** or **简体中文**. A fresh installation defaults to English; later launches remember your selection. Windows-owned file and printer dialogs can still follow the Windows display language.
+Use the language selector to choose **English** or **Chinese**. A fresh installation defaults to English; later launches remember your selection. Windows-owned file and printer dialogs can still follow the Windows display language.
 
 ## Requirements
 
