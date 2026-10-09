@@ -24,5 +24,8 @@
   "languageAccessible": "Interface language",
   "languageEnglish": "English",
   "languageChinese": "简体中文",
-  "settingsFailed": "The language preference could not be saved. The selection still applies to this session."
+  "settingsFailed": "The language preference could not be saved. The selection still applies to this session.",
+  "enterFullScreen": "Full screen",
+  "exitFullScreen": "Exit full screen",
+  "fullScreenHint": "Full screen  |  Esc: Exit  |  F11: Toggle  |  Exit full screen is available in the toolbar"
 }

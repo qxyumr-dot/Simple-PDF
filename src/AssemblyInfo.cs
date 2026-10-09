@@ -4,5 +4,5 @@ using System.Reflection;
 [assembly: AssemblyDescription("A free, lightweight PDF reader for researchers.")]
 [assembly: AssemblyProduct("Simple-PDF")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 qxyumr-dot")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.1.1.0")]
+[assembly: AssemblyFileVersion("1.1.1.0")]

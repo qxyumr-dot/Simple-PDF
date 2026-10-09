@@ -38,6 +38,11 @@ namespace SimplePdf
         readonly Label status = new Label();
         readonly Button openButton;
         readonly Button printButton;
+        readonly Button fullScreenButton;
+        bool isFullScreen;
+        Rectangle windowBoundsBeforeFullScreen;
+        FormWindowState windowStateBeforeFullScreen;
+        FormBorderStyle borderStyleBeforeFullScreen;
         readonly string[] arguments;
         readonly bool testing;
         string currentFile;
@@ -68,17 +73,19 @@ namespace SimplePdf
                 ShowInTaskbar = false;
                 StartPosition = FormStartPosition.Manual;
                 Location = new Point(-16000, -16000);
+                Opacity = 0;
             }
 
             var toolbar = new TableLayoutPanel {
                 Dock = DockStyle.Top, Height = 76, BackColor = Color.White,
-                ColumnCount = 5, RowCount = 1, Padding = new Padding(22, 15, 22, 15)
+                ColumnCount = 6, RowCount = 1, Padding = new Padding(22, 15, 22, 15)
             };
             toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 60));
             toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
             toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
-            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 146));
-            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 95));
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 155));
             var logo = new Label {
                 Text = "PDF", ForeColor = Color.White, BackColor = Color.FromArgb(24, 110, 92),
                 Font = new Font("Segoe UI", 11, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter,
@@ -91,12 +98,16 @@ namespace SimplePdf
             fileLabel.ForeColor = Color.FromArgb(37, 47, 48);
             openButton = MakeButton(T("open"), Color.FromArgb(24, 110, 92), Color.White);
             printButton = MakeButton(T("print"), Color.FromArgb(237, 241, 240), Color.FromArgb(37, 47, 48));
+            fullScreenButton = MakeButton(T("enterFullScreen"), Color.FromArgb(237, 241, 240), Color.FromArgb(37, 47, 48));
             openButton.Enabled = false;
             printButton.Enabled = false;
+            fullScreenButton.Enabled = false;
             openButton.AccessibleName = T("openAccessible");
             printButton.AccessibleName = T("printAccessible");
             openButton.Click += delegate { ChooseFile(); };
             printButton.Click += delegate { ShowPrint(); };
+            fullScreenButton.Click += delegate { ToggleFullScreen(); };
+            fullScreenButton.AccessibleName = T("enterFullScreen");
             toolbar.Controls.Add(logo, 0, 0);
             toolbar.Controls.Add(fileLabel, 1, 0);
             languageSelector.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -110,6 +121,7 @@ namespace SimplePdf
             toolbar.Controls.Add(languageSelector, 2, 0);
             toolbar.Controls.Add(openButton, 3, 0);
             toolbar.Controls.Add(printButton, 4, 0);
+            toolbar.Controls.Add(fullScreenButton, 5, 0);
 
             status.Dock = DockStyle.Bottom;
             status.Height = 34;
@@ -124,6 +136,8 @@ namespace SimplePdf
             Controls.Add(toolbar);
             Shown += async delegate { await InitializeViewer(); };
         }
+
+        protected override bool ShowWithoutActivation { get { return testing; } }
 
         string T(string key) { return translations[key]; }
 
@@ -162,6 +176,7 @@ namespace SimplePdf
             string selected = languageSelector.SelectedIndex == 0 ? "en" : "zh-CN";
             if (selected == language) return;
             changingLanguage = true;
+            ExitFullScreen();
             language = selected;
             LoadTranslations();
             Text = currentFile == null ? T("appTitle") : Path.GetFileName(currentFile) + " - Simple-PDF";
@@ -171,6 +186,8 @@ namespace SimplePdf
             openButton.AccessibleName = T("openAccessible");
             printButton.AccessibleName = T("printAccessible");
             languageSelector.AccessibleName = T("languageAccessible");
+            fullScreenButton.Text = T("enterFullScreen");
+            fullScreenButton.AccessibleName = T("enterFullScreen");
             try
             {
                 if (!testing)
@@ -197,14 +214,73 @@ namespace SimplePdf
             return button;
         }
 
+        void ToggleFullScreen()
+        {
+            if (isFullScreen) { ExitFullScreen(); return; }
+            if (!ready || !loaded) return;
+            windowBoundsBeforeFullScreen = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
+            windowStateBeforeFullScreen = WindowState;
+            borderStyleBeforeFullScreen = FormBorderStyle;
+            Rectangle screenBounds = Screen.FromControl(this).Bounds;
+            SuspendLayout();
+            isFullScreen = true;
+            WindowState = FormWindowState.Normal;
+            FormBorderStyle = FormBorderStyle.None;
+            Bounds = screenBounds;
+            // Keep the native toolbar visible so the exit control cannot be hidden by the PDF renderer.
+            fullScreenButton.Text = T("exitFullScreen");
+            fullScreenButton.AccessibleName = T("exitFullScreen");
+            status.Text = T("fullScreenHint");
+            ResumeLayout(true);
+        }
+
+        void ExitFullScreen()
+        {
+            if (!isFullScreen) return;
+            SuspendLayout();
+            isFullScreen = false;
+            WindowState = FormWindowState.Normal;
+            FormBorderStyle = borderStyleBeforeFullScreen;
+            Bounds = windowBoundsBeforeFullScreen;
+            WindowState = windowStateBeforeFullScreen;
+            fullScreenButton.Text = T("enterFullScreen");
+            fullScreenButton.AccessibleName = T("enterFullScreen");
+            status.Text = loaded ? T("documentReady") : T("ready");
+            ResumeLayout(true);
+        }
+
+        bool HandleReaderShortcut(Keys keyData)
+        {
+            if (keyData == Keys.Escape && isFullScreen) { ExitFullScreen(); return true; }
+            if (keyData == Keys.F11 && (isFullScreen || (ready && loaded))) { ToggleFullScreen(); return true; }
+            if (keyData == (Keys.Control | Keys.O)) { BeginInvoke(new Action(ChooseFile)); return true; }
+            if (keyData == (Keys.Control | Keys.P)) { BeginInvoke(new Action(ShowPrint)); return true; }
+            return false;
+        }
+
+        void ViewerKeyDown(object sender, KeyEventArgs e)
+        {
+            Keys keys = e.KeyData;
+            bool handled = (keys == Keys.Escape && isFullScreen)
+                || (keys == Keys.F11 && (isFullScreen || (ready && loaded)))
+                || keys == (Keys.Control | Keys.O) || keys == (Keys.Control | Keys.P);
+            if (!handled) return;
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            // Resize the host after the synchronous WebView2 keyboard callback has returned.
+            BeginInvoke(new Action(delegate { HandleReaderShortcut(keys); }));
+        }
+
         async Task InitializeViewer()
         {
             try
             {
                 ready = false;
                 loaded = false;
+                ExitFullScreen();
                 openButton.Enabled = false;
                 printButton.Enabled = false;
+                fullScreenButton.Enabled = false;
                 languageSelector.Enabled = false;
                 status.Text = T("preparing");
                 if (viewer != null) { viewerHost.Controls.Remove(viewer); viewer.Dispose(); }
@@ -224,7 +300,7 @@ namespace SimplePdf
                 settings.IsStatusBarEnabled = false;
                 settings.IsGeneralAutofillEnabled = false;
                 settings.IsPasswordAutosaveEnabled = false;
-                settings.HiddenPdfToolbarItems = CoreWebView2PdfToolbarItems.Save | CoreWebView2PdfToolbarItems.SaveAs | CoreWebView2PdfToolbarItems.MoreSettings;
+                settings.HiddenPdfToolbarItems = CoreWebView2PdfToolbarItems.Save | CoreWebView2PdfToolbarItems.SaveAs | CoreWebView2PdfToolbarItems.MoreSettings | CoreWebView2PdfToolbarItems.FullScreen;
                 viewer.CoreWebView2.NavigationStarting += delegate(object sender, CoreWebView2NavigationStartingEventArgs e) {
                     if (e.Uri != "about:blank" && e.Uri != welcomeUri && !String.Equals(e.Uri.Split('#')[0], expectedUri, StringComparison.OrdinalIgnoreCase))
                         e.Cancel = true;
@@ -238,14 +314,12 @@ namespace SimplePdf
                 viewer.CoreWebView2.NavigationCompleted += NavigationCompleted;
                 viewer.CoreWebView2.ProcessFailed += delegate {
                     loaded = false;
+                    ExitFullScreen();
                     printButton.Enabled = false;
+                    fullScreenButton.Enabled = false;
                     status.Text = T("processFailed");
                 };
-                viewer.KeyDown += delegate(object sender, KeyEventArgs e) {
-                    if (!e.Control) return;
-                    if (e.KeyCode == Keys.O) { e.Handled = true; e.SuppressKeyPress = true; BeginInvoke(new Action(ChooseFile)); }
-                    if (e.KeyCode == Keys.P) { e.Handled = true; e.SuppressKeyPress = true; BeginInvoke(new Action(ShowPrint)); }
-                };
+                viewer.KeyDown += ViewerKeyDown;
                 ready = true;
                 openButton.Enabled = true;
                 languageSelector.Enabled = true;
@@ -340,6 +414,7 @@ namespace SimplePdf
                 currentFile = fullPath;
                 loaded = false;
                 printButton.Enabled = false;
+                fullScreenButton.Enabled = isFullScreen;
                 fileLabel.Text = Path.GetFileName(fullPath);
                 Text = Path.GetFileName(fullPath) + " - Simple-PDF";
                 status.Text = T("loading");
@@ -358,7 +433,8 @@ namespace SimplePdf
             if (currentFile == null || !viewer.CoreWebView2.Source.StartsWith("file:", StringComparison.OrdinalIgnoreCase)) return;
             loaded = e.IsSuccess;
             printButton.Enabled = loaded;
-            status.Text = loaded ? T("documentReady") : T("navigationFailed");
+            fullScreenButton.Enabled = loaded || isFullScreen;
+            status.Text = loaded ? T(isFullScreen ? "fullScreenHint" : "documentReady") : T("navigationFailed");
             if (!testing || testRunning) return;
             testRunning = true;
             try
@@ -373,6 +449,7 @@ namespace SimplePdf
                 File.WriteAllText(Path.Combine(arguments[2], "frames.json"), frames);
                 File.WriteAllText(Path.Combine(arguments[2], "dom.json"), await viewer.CoreWebView2.CallDevToolsProtocolMethodAsync("DOM.getDocument", "{\"depth\":-1,\"pierce\":true}"));
                 CheckRejectedFiles();
+                await CheckFullScreen();
                 if (Array.IndexOf(arguments, "--test-switch") >= 0 && language == "en")
                 {
                     File.WriteAllText(Path.Combine(arguments[2], "before-switch.txt"), currentFile);
@@ -391,7 +468,7 @@ namespace SimplePdf
                 await Task.Delay(2000);
                 using (var preview = File.Create(Path.Combine(arguments[2], "print-preview.png")))
                     await viewer.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, preview);
-                FinishTest("PASS [" + language + "]: welcome screen, PDF navigation, rendering capture, invalid/missing file validation, and print-preview API. Runtime " + viewer.CoreWebView2.Environment.BrowserVersionString);
+                FinishTest("PASS [" + language + "]: welcome screen, PDF navigation, fullscreen button/Esc/F11 and window restoration, invalid/missing file validation, and print-preview API. Runtime " + viewer.CoreWebView2.Environment.BrowserVersionString);
             }
             catch (Exception ex) { FinishTest("FAIL: " + ex); }
         }
@@ -406,6 +483,56 @@ namespace SimplePdf
             rejected = false;
             try { ValidatePdf(Path.Combine(arguments[2], "missing.pdf")); } catch (FileNotFoundException) { rejected = true; }
             if (!rejected) throw new Exception("Missing file was not rejected.");
+        }
+
+        async Task CheckFullScreen()
+        {
+            Rectangle originalBounds = Bounds;
+            FormBorderStyle originalBorder = FormBorderStyle;
+            string originalSource = viewer.CoreWebView2.Source;
+            if ((viewer.CoreWebView2.Settings.HiddenPdfToolbarItems & CoreWebView2PdfToolbarItems.FullScreen) == 0)
+                throw new Exception("The renderer's fullscreen control was not replaced.");
+            fullScreenButton.PerformClick();
+            if (!isFullScreen || FormBorderStyle != FormBorderStyle.None || !fullScreenButton.Visible || fullScreenButton.Text != T("exitFullScreen"))
+                throw new Exception("Fullscreen entry did not retain a visible exit button.");
+            using (var toolbarImage = new Bitmap(fullScreenButton.Parent.Width, fullScreenButton.Parent.Height))
+            {
+                fullScreenButton.Parent.DrawToBitmap(toolbarImage, fullScreenButton.Parent.ClientRectangle);
+                toolbarImage.Save(Path.Combine(arguments[2], "fullscreen-toolbar-" + language + ".png"));
+            }
+            fullScreenButton.PerformClick();
+            if (isFullScreen || Bounds != originalBounds || FormBorderStyle != originalBorder)
+                throw new Exception("The exit button did not restore the normal window.");
+            fullScreenButton.PerformClick();
+            Message escape = new Message();
+            if (!ProcessCmdKey(ref escape, Keys.Escape) || isFullScreen || Bounds != originalBounds)
+                throw new Exception("Escape did not exit fullscreen and restore the window.");
+            Message toggle = new Message();
+            ProcessCmdKey(ref toggle, Keys.F11);
+            if (!isFullScreen) throw new Exception("F11 did not enter fullscreen.");
+            ProcessCmdKey(ref toggle, Keys.F11);
+            if (isFullScreen) throw new Exception("F11 did not exit fullscreen.");
+            fullScreenButton.PerformClick();
+            var viewerEscape = new KeyEventArgs(Keys.Escape);
+            ViewerKeyDown(viewer, viewerEscape);
+            await Task.Delay(150);
+            if (!viewerEscape.Handled || !viewerEscape.SuppressKeyPress || isFullScreen)
+                throw new Exception("Escape from the focused PDF did not exit fullscreen.");
+            ViewerKeyDown(viewer, new KeyEventArgs(Keys.F11));
+            await Task.Delay(150);
+            if (!isFullScreen) throw new Exception("F11 from the focused PDF did not enter fullscreen.");
+            ViewerKeyDown(viewer, new KeyEventArgs(Keys.F11));
+            await Task.Delay(150);
+            if (isFullScreen) throw new Exception("F11 from the focused PDF did not exit fullscreen.");
+            WindowState = FormWindowState.Maximized;
+            fullScreenButton.PerformClick();
+            fullScreenButton.PerformClick();
+            if (isFullScreen || WindowState != FormWindowState.Maximized)
+                throw new Exception("Fullscreen exit did not restore the maximized window.");
+            WindowState = FormWindowState.Normal;
+            Bounds = originalBounds;
+            if (viewer.CoreWebView2.Source != originalSource || !loaded || !printButton.Enabled)
+                throw new Exception("Fullscreen switching interrupted the open document.");
         }
 
         void FinishTest(string result)
@@ -425,8 +552,7 @@ namespace SimplePdf
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
-            if (keyData == (Keys.Control | Keys.O)) { ChooseFile(); return true; }
-            if (keyData == (Keys.Control | Keys.P)) { ShowPrint(); return true; }
+            if (HandleReaderShortcut(keyData)) return true;
             return base.ProcessCmdKey(ref msg, keyData);
         }
     }
