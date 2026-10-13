@@ -1,0 +1,12 @@
+[
+  {"id":"pdfsharp-gdi","version":"6.2.4","framework":"net462","assemblies":["PdfSharp-gdi.dll","PdfSharp.Shared.dll","PdfSharp.System.dll","PdfSharp.Cryptography.dll","PdfSharp.WPFonts.dll"]},
+  {"id":"microsoft.extensions.logging.abstractions","version":"8.0.3","framework":"net462","assemblies":["Microsoft.Extensions.Logging.Abstractions.dll"]},
+  {"id":"microsoft.extensions.dependencyinjection.abstractions","version":"8.0.2","framework":"net462","assemblies":["Microsoft.Extensions.DependencyInjection.Abstractions.dll"]},
+  {"id":"microsoft.bcl.asyncinterfaces","version":"8.0.0","framework":"net462","assemblies":["Microsoft.Bcl.AsyncInterfaces.dll"]},
+  {"id":"system.threading.tasks.extensions","version":"4.5.4","framework":"net461","assemblies":["System.Threading.Tasks.Extensions.dll"]},
+  {"id":"system.security.cryptography.pkcs","version":"8.0.1","framework":"net462","assemblies":["System.Security.Cryptography.Pkcs.dll"]},
+  {"id":"system.buffers","version":"4.5.1","framework":"net461","assemblies":["System.Buffers.dll"]},
+  {"id":"system.memory","version":"4.5.5","framework":"net461","assemblies":["System.Memory.dll"]},
+  {"id":"system.runtime.compilerservices.unsafe","version":"6.0.0","framework":"net461","assemblies":["System.Runtime.CompilerServices.Unsafe.dll"]},
+  {"id":"system.numerics.vectors","version":"4.5.0","framework":"net46","assemblies":["System.Numerics.Vectors.dll"]}
+]

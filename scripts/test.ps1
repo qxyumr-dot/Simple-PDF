@@ -2,6 +2,7 @@ param([switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 if (-not $SkipBuild) { & (Join-Path $PSScriptRoot 'build.ps1') }
+& (Join-Path $PSScriptRoot 'test-merge.ps1')
 $resultsRoot = Join-Path $projectRoot 'test-results'
 New-Item -ItemType Directory -Force -Path $resultsRoot | Out-Null
 $pdfPath = Join-Path $resultsRoot (([string][char]0x6587) + ' test paper #1.pdf')
@@ -37,11 +38,13 @@ $exePath = Join-Path $projectRoot 'dist\Simple-PDF\Simple-PDF.exe'
 $cases = @(
     @{ Name = 'english-default'; Extra = @() },
     @{ Name = 'chinese'; Extra = @('--language=zh-CN') },
-    @{ Name = 'language-switch'; Extra = @('--test-switch') }
+    @{ Name = 'language-switch'; Extra = @('--test-switch') },
+    @{ Name = 'merged-document'; Extra = @(); Pdf = (Join-Path $resultsRoot 'merge\merged.pdf') }
 )
 foreach ($case in $cases) {
     $caseRoot = Join-Path $resultsRoot $case.Name
-    $arguments = @('--self-test', ('"' + $pdfPath + '"'), ('"' + $caseRoot + '"')) + $case.Extra
+    $casePdf = if ($case.ContainsKey('Pdf')) { $case.Pdf } else { $pdfPath }
+    $arguments = @('--self-test', ('"' + $casePdf + '"'), ('"' + $caseRoot + '"')) + $case.Extra
     $process = Start-Process -FilePath $exePath -ArgumentList $arguments -WindowStyle Hidden -PassThru
     $null = $process.Handle
     if (-not $process.WaitForExit(45000)) {

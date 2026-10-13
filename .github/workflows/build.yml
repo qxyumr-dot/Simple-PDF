@@ -15,6 +15,9 @@ jobs:
       - name: Build portable application
         shell: powershell
         run: .\scripts\build.ps1
+      - name: Test PDF merging
+        shell: powershell
+        run: .\scripts\test-merge.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: Simple-PDF-Windows-x64

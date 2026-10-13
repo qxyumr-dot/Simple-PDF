@@ -38,6 +38,7 @@ namespace SimplePdf
         readonly Label status = new Label();
         readonly Button openButton;
         readonly Button printButton;
+        readonly Button mergeButton;
         readonly Button fullScreenButton;
         bool isFullScreen;
         Rectangle windowBoundsBeforeFullScreen;
@@ -61,7 +62,7 @@ namespace SimplePdf
             LoadTranslations();
             Text = T("appTitle");
             Size = new Size(1180, 850);
-            MinimumSize = new Size(700, 520);
+            MinimumSize = new Size(840, 520);
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 10F);
             BackColor = Color.FromArgb(245, 247, 248);
@@ -78,11 +79,12 @@ namespace SimplePdf
 
             var toolbar = new TableLayoutPanel {
                 Dock = DockStyle.Top, Height = 76, BackColor = Color.White,
-                ColumnCount = 6, RowCount = 1, Padding = new Padding(22, 15, 22, 15)
+                ColumnCount = 7, RowCount = 1, Padding = new Padding(22, 15, 22, 15)
             };
             toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 60));
             toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
             toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
             toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 95));
             toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 155));
@@ -98,6 +100,8 @@ namespace SimplePdf
             fileLabel.ForeColor = Color.FromArgb(37, 47, 48);
             openButton = MakeButton(T("open"), Color.FromArgb(24, 110, 92), Color.White);
             printButton = MakeButton(T("print"), Color.FromArgb(237, 241, 240), Color.FromArgb(37, 47, 48));
+            mergeButton = MakeButton(T("mergeTitle"), Color.FromArgb(237, 241, 240), Color.FromArgb(37, 47, 48));
+            mergeButton.Click += delegate { ShowMergeDialog(); };
             fullScreenButton = MakeButton(T("enterFullScreen"), Color.FromArgb(237, 241, 240), Color.FromArgb(37, 47, 48));
             openButton.Enabled = false;
             printButton.Enabled = false;
@@ -120,8 +124,9 @@ namespace SimplePdf
             languageSelector.SelectedIndexChanged += async delegate { await SwitchLanguage(); };
             toolbar.Controls.Add(languageSelector, 2, 0);
             toolbar.Controls.Add(openButton, 3, 0);
-            toolbar.Controls.Add(printButton, 4, 0);
-            toolbar.Controls.Add(fullScreenButton, 5, 0);
+            toolbar.Controls.Add(mergeButton, 4, 0);
+            toolbar.Controls.Add(printButton, 5, 0);
+            toolbar.Controls.Add(fullScreenButton, 6, 0);
 
             status.Dock = DockStyle.Bottom;
             status.Height = 34;
@@ -183,6 +188,7 @@ namespace SimplePdf
             if (currentFile == null) fileLabel.Text = T("appLabel");
             openButton.Text = T("open");
             printButton.Text = T("print");
+            mergeButton.Text = T("mergeTitle");
             openButton.AccessibleName = T("openAccessible");
             printButton.AccessibleName = T("printAccessible");
             languageSelector.AccessibleName = T("languageAccessible");
@@ -378,6 +384,14 @@ namespace SimplePdf
             }
         }
 
+        void ShowMergeDialog()
+        {
+            ExitFullScreen();
+            using (var dialog = new MergeDialog(T, GetDownloadsFolder(), currentFile))
+                if (dialog.ShowDialog(this) == DialogResult.OK && dialog.OpenMergedFile && ready)
+                    OpenPdf(dialog.MergedPath);
+        }
+
         [DllImport("shell32.dll")] static extern int SHGetKnownFolderPath([MarshalAs(UnmanagedType.LPStruct)] Guid id, uint flags, IntPtr token, out IntPtr path);
         static string GetDownloadsFolder()
         {
@@ -449,6 +463,8 @@ namespace SimplePdf
                 File.WriteAllText(Path.Combine(arguments[2], "frames.json"), frames);
                 File.WriteAllText(Path.Combine(arguments[2], "dom.json"), await viewer.CoreWebView2.CallDevToolsProtocolMethodAsync("DOM.getDocument", "{\"depth\":-1,\"pierce\":true}"));
                 CheckRejectedFiles();
+                using (var merge = new MergeDialog(T, GetDownloadsFolder(), currentFile))
+                    merge.CheckLayoutAndOrdering(arguments[2]);
                 await CheckFullScreen();
                 if (Array.IndexOf(arguments, "--test-switch") >= 0 && language == "en")
                 {
